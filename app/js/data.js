@@ -32,7 +32,11 @@ const ROLES = [
   { pk_role_id: 'ROLE001', role_org_id: 'ORG001', role_name: 'Financier', role_description: 'Approves and disburses loans to customers' },
   { pk_role_id: 'ROLE002', role_org_id: 'ORG001', role_name: 'Collection Agent', role_description: 'Collects repayments from customers' },
   { pk_role_id: 'ROLE003', role_org_id: 'ORG001', role_name: 'Customer', role_description: 'Receives loan amount from Financier' },
-  { pk_role_id: 'ROLE004', role_org_id: 'ORG001', role_name: 'Security', role_description: 'Monitors legal and illegal financial activities' }
+  { pk_role_id: 'ROLE004', role_org_id: 'ORG001', role_name: 'Security', role_description: 'Monitors legal and illegal financial activities' },
+  // Added for this app (not in the original etfdb_dev.sql dump) - ID picked
+  // above ROLE052 (the highest role id across the full multi-org export) to
+  // avoid colliding with any real row if this ever merges back.
+  { pk_role_id: 'ROLE060', role_org_id: 'ORG001', role_name: 'Data Entry Operator', role_description: 'Registers new customers and submits loan applications for review' }
 ];
 
 // Straight from role_permission_mapping in etfdb_dev.sql (MAP001-MAP017)
@@ -56,7 +60,11 @@ const ROLE_PERMISSION_MAPPING = [
   { pk_mapping_id: 'MAP014', map_org_id: 'ORG001', map_role_id: 'ROLE004', map_module_id: 'MOD002', map_permission_id: 'PERM001' },
   { pk_mapping_id: 'MAP015', map_org_id: 'ORG001', map_role_id: 'ROLE004', map_module_id: 'MOD002', map_permission_id: 'PERM007' },
   { pk_mapping_id: 'MAP016', map_org_id: 'ORG001', map_role_id: 'ROLE004', map_module_id: 'MOD003', map_permission_id: 'PERM001' },
-  { pk_mapping_id: 'MAP017', map_org_id: 'ORG001', map_role_id: 'ROLE004', map_module_id: 'MOD003', map_permission_id: 'PERM007' }
+  { pk_mapping_id: 'MAP017', map_org_id: 'ORG001', map_role_id: 'ROLE004', map_module_id: 'MOD003', map_permission_id: 'PERM007' },
+
+  // Data Entry Operator -> Loan Disbursement (VIEW, CREATE only - no approve/disburse)
+  { pk_mapping_id: 'MAP018', map_org_id: 'ORG001', map_role_id: 'ROLE060', map_module_id: 'MOD001', map_permission_id: 'PERM001' },
+  { pk_mapping_id: 'MAP019', map_org_id: 'ORG001', map_role_id: 'ROLE060', map_module_id: 'MOD001', map_permission_id: 'PERM002' }
 ];
 
 // From user_info (ORG001 rows). Passwords are 'test' in the real dump - kept as-is for demo login.
@@ -64,7 +72,9 @@ const SEED_USERS = [
   { pk_user_id: 'USR001', user_org_id: 'ORG001', user_name: 'Ravi Kumar', password: 'test', user_email: 'ravi.kumar@maduraifinance.com', user_role_id: 'ROLE001', status: 'ACTIVE' },
   { pk_user_id: 'USR002', user_org_id: 'ORG001', user_name: 'Priya Devi', password: 'test', user_email: 'priya.devi@maduraifinance.com', user_role_id: 'ROLE002', status: 'ACTIVE' },
   { pk_user_id: 'USR003', user_org_id: 'ORG001', user_name: 'Murugan K', password: 'test', user_email: 'murugan.k@maduraifinance.com', user_role_id: 'ROLE003', status: 'ACTIVE' },
-  { pk_user_id: 'USR004', user_org_id: 'ORG001', user_name: 'Suresh V', password: 'test', user_email: 'suresh.v@maduraifinance.com', user_role_id: 'ROLE004', status: 'ACTIVE' }
+  { pk_user_id: 'USR004', user_org_id: 'ORG001', user_name: 'Suresh V', password: 'test', user_email: 'suresh.v@maduraifinance.com', user_role_id: 'ROLE004', status: 'ACTIVE' },
+  // Added for this app - demo account for the new Data Entry Operator role.
+  { pk_user_id: 'USR020', user_org_id: 'ORG001', user_name: 'Kavitha M', password: 'test', user_email: 'kavitha.m@maduraifinance.com', user_role_id: 'ROLE060', status: 'ACTIVE' }
 ];
 
 // LOAN001 is the exact row from etfdb_dev.sql. LOAN002/LOAN003 are added demo

@@ -87,10 +87,13 @@ function can(user, moduleCode, permCode) {
 
 // "User Management" has no module in the schema (Madurai Finance's role
 // matrix only covers Loan Disbursement / Collection / Audit). For this demo
-// we extend Financier (branch head) with manage rights and Security with
-// read-only visibility, matching their real-world responsibilities.
+// we extend Financier (branch head) with full manage rights, Security with
+// read-only visibility, and Data Entry Operator with the narrow ability to
+// register new customers only (no other roles, no status changes).
 function canManageUsers(user) { return roleOf(user).role_name === 'Financier'; }
-function canViewUsers(user) { return ['Financier', 'Security'].includes(roleOf(user).role_name); }
+function canAddCustomer(user) { return ['Financier', 'Data Entry Operator'].includes(roleOf(user).role_name); }
+function canViewUsers(user) { return ['Financier', 'Security', 'Data Entry Operator'].includes(roleOf(user).role_name); }
+function isDataEntryOperator(user) { return roleOf(user).role_name === 'Data Entry Operator'; }
 
 /* ---------------------------------------------------------------------- */
 /* Auth                                                                    */
@@ -201,7 +204,7 @@ function bindLoginEvents() {
 function renderShell(user) {
   const role = roleOf(user);
   const items = [{ key: 'dashboard', label: 'Dashboard', show: true }];
-  if (canViewUsers(user)) items.push({ key: 'users', label: 'Users', show: true });
+  if (canViewUsers(user)) items.push({ key: 'users', label: isDataEntryOperator(user) ? 'Customers' : 'Users', show: true });
   if (can(user, 'LOAN_DISBURSEMENT', 'VIEW')) items.push({ key: 'loans', label: 'Loan Disbursement', show: true });
   if (can(user, 'COLLECTION', 'VIEW')) items.push({ key: 'collections', label: 'Collection', show: true });
   if (can(user, 'AUDIT', 'VIEW')) items.push({ key: 'audit', label: 'Audit', show: true });
@@ -298,7 +301,8 @@ function renderDashboardView(user) {
     { label: 'Total Collected', value: fmtCurrency(totalCollected) },
     { label: 'Active Loans', value: activeLoans }
   ];
-  if (canViewUsers(user)) cards.push({ label: 'Org Users', value: db.users.length });
+  if (isDataEntryOperator(user)) cards.push({ label: 'Customers', value: db.users.filter(u => roleOf(u).role_name === 'Customer').length });
+  else if (canViewUsers(user)) cards.push({ label: 'Org Users', value: db.users.length });
 
   const recentAudit = db.audit.slice(0, 6).map(a =>
     `<li><span class="audit-time">${a.datetime}</span> <strong>${escapeHtml(a.user_name)}</strong> — ${escapeHtml(a.details)}</li>`
@@ -320,7 +324,9 @@ function renderDashboardView(user) {
 /* ---------------------------------------------------------------------- */
 
 function renderUsersView(user) {
-  const rows = db.users.map(u => {
+  const dataEntry = isDataEntryOperator(user);
+  const visibleUsers = dataEntry ? db.users.filter(u => roleOf(u).role_name === 'Customer') : db.users;
+  const rows = visibleUsers.map(u => {
     const role = roleOf(u);
     return `<tr>
       <td>${u.pk_user_id}</td>
@@ -332,14 +338,18 @@ function renderUsersView(user) {
         ? `<button class="btn btn-small" data-action="toggle-user" data-id="${u.pk_user_id}">${u.status === 'ACTIVE' ? 'Disable' : 'Enable'}</button>`
         : ''}</td>
     </tr>`;
-  }).join('');
+  }).join('') || `<tr><td colspan="6" class="muted">No customers yet.</td></tr>`;
+
+  const helpText = dataEntry
+    ? 'You can register new customers here. Staff accounts are managed by the Financier.'
+    : (!canManageUsers(user) ? 'Read-only view (Security monitors org users).' : '');
 
   return `
   <div class="view-header">
-    <h2>Users</h2>
-    ${canManageUsers(user) ? `<button class="btn btn-primary" data-action="new-user">+ New User</button>` : ''}
+    <h2>${dataEntry ? 'Customers' : 'Users'}</h2>
+    ${canAddCustomer(user) ? `<button class="btn btn-primary" data-action="new-user">+ ${dataEntry ? 'Add Customer' : 'New User'}</button>` : ''}
   </div>
-  ${!canManageUsers(user) ? `<p class="muted">Read-only view (Security monitors org users).</p>` : ''}
+  ${helpText ? `<p class="muted">${helpText}</p>` : ''}
   <table class="data-table">
     <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
@@ -362,17 +372,22 @@ function bindUsersEvents(user) {
 }
 
 function openUserModal(user) {
-  const roleOptions = ROLES.map(r => `<option value="${r.pk_role_id}">${r.role_name}</option>`).join('');
-  showModal('Create User', `
+  const dataEntry = isDataEntryOperator(user);
+  const customerRoleId = ROLES.find(r => r.role_name === 'Customer').pk_role_id;
+  const roleField = dataEntry
+    ? `<label>Role <input value="Customer" disabled /><input type="hidden" name="user_role_id" value="${customerRoleId}" /></label>`
+    : `<label>Role <select name="user_role_id">${ROLES.map(r => `<option value="${r.pk_role_id}">${r.role_name}</option>`).join('')}</select></label>`;
+
+  showModal(dataEntry ? 'Add New Customer' : 'Create User', `
     <form id="user-form">
       <label>Full Name <input name="user_name" required /></label>
       <label>Email <input type="email" name="user_email" required /></label>
-      <label>Role <select name="user_role_id">${roleOptions}</select></label>
+      ${roleField}
       <label>Temporary Password <input name="password" value="test" required /></label>
       <div id="user-form-error" class="error-text" hidden></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-action="close-modal">Cancel</button>
-        <button type="submit" class="btn btn-primary">Create</button>
+        <button type="submit" class="btn btn-primary">${dataEntry ? 'Add Customer' : 'Create'}</button>
       </div>
     </form>`);
   document.getElementById('user-form').addEventListener('submit', e => {
@@ -652,6 +667,7 @@ function renderReportsView(user) {
   if (role === 'Collection Agent') return reportCollectionPerformance();
   if (role === 'Security') return reportLoanPortfolio() + reportCollectionPerformance();
   if (role === 'Customer') return reportCustomerStatement(user);
+  if (role === 'Data Entry Operator') return reportLoanPortfolio();
   return '<p class="muted">No reports available.</p>';
 }
 function bindReportsEvents() {}
