@@ -1,0 +1,33 @@
+# Default profile: in-memory H2 (MySQL mode) seeded from schema.sql + data.sql,
+# so the app runs with no database setup. Use the "mysql" profile for etfdb_dev.
+spring:
+  application:
+    name: madurai-finance
+  datasource:
+    url: jdbc:h2:mem:mfdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+
+server:
+  port: 8080
+  servlet:
+    session:
+      cookie:
+        # CSRF protection is disabled for the JSON API; a strict same-site
+        # session cookie keeps cross-site requests from carrying the session.
+        same-site: strict
+        http-only: true
+
+app:
+  # Comma-separated accounts shown as "quick demo login" buttons; empty hides them.
+  demo-accounts: >-
+    ravi.kumar@maduraifinance.com,priya.devi@maduraifinance.com,murugan.k@maduraifinance.com,
+    suresh.v@maduraifinance.com,kavitha.m@maduraifinance.com
